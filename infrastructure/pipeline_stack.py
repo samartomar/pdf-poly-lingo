@@ -1,6 +1,6 @@
 """CI/CD Pipeline stack using CDK Pipelines."""
 
-from aws_cdk import Stack
+from aws_cdk import Stack, Stage
 from aws_cdk import pipelines as pipelines
 from constructs import Construct
 
@@ -63,7 +63,7 @@ class PipelineStack(Stack):
         pipeline.add_stage(TranslationServiceStage(self, "Prod"))
 
 
-class TranslationServiceStage(pipelines.Stage):
+class TranslationServiceStage(Stage):
     """Deployable stage containing the translation service."""
 
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
