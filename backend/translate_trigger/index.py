@@ -144,12 +144,39 @@ def _process_pdf(
     job_id_txt = f"pdf-extract-{int(time.time())}"
     temp_prefix = f"temp/{job_id_txt}/"
 
-    # Textract requires S3Object for PDF (Bytes only supports JPEG/PNG images)
-    response = TEXTRACT_CLIENT.detect_document_text(
-        Document={"S3Object": {"Bucket": bucket, "Name": key}}
+    # Use async StartDocumentTextDetection - supports more PDF formats than sync DetectDocumentText
+    response = TEXTRACT_CLIENT.start_document_text_detection(
+        DocumentLocation={"S3Object": {"Bucket": bucket, "Name": key}}
     )
-    text_blocks = [b["Text"] for b in response.get("Blocks", []) if b["BlockType"] == "LINE"]
-    full_text = "\n".join(text_blocks)
+    textract_job_id = response["JobId"]
+
+    # Poll until complete (max ~5 min for large PDFs)
+    for _ in range(60):
+        status_resp = TEXTRACT_CLIENT.get_document_text_detection(JobId=textract_job_id)
+        status = status_resp["JobStatus"]
+        if status == "SUCCEEDED":
+            break
+        if status == "FAILED":
+            raise RuntimeError(
+                status_resp.get("StatusMessage", "Textract job failed")
+            )
+        time.sleep(5)
+
+    if status_resp["JobStatus"] != "SUCCEEDED":
+        raise RuntimeError("Textract job timed out")
+
+    # Collect all pages (pagination for multi-page)
+    blocks = list(status_resp.get("Blocks", []))
+    next_token = status_resp.get("NextToken")
+    while next_token:
+        page = TEXTRACT_CLIENT.get_document_text_detection(
+            JobId=textract_job_id, NextToken=next_token
+        )
+        blocks.extend(page.get("Blocks", []))
+        next_token = page.get("NextToken")
+
+    text_blocks = [b["Text"] for b in blocks if b["BlockType"] == "LINE"]
+    full_text = "\n".join(text_blocks) if text_blocks else ""
 
     # Write extracted text to temp bucket
     txt_key = f"{temp_prefix}extracted.txt"

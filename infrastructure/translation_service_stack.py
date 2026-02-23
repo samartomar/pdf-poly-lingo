@@ -134,7 +134,7 @@ class TranslationServiceStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="index.handler",
             code=_lambda.Code.from_asset("backend/translate_trigger"),
-            timeout=Duration.minutes(1),
+            timeout=Duration.minutes(6),
             environment={
                 "INPUT_BUCKET": input_bucket.bucket_name,
                 "OUTPUT_BUCKET": output_bucket.bucket_name,
@@ -157,9 +157,22 @@ class TranslationServiceStack(Stack):
                 resources=["*"],
             )
         )
+        # Lambda must be allowed to pass the Translate role to the Translate service
         translate_trigger.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["textract:DetectDocumentText", "textract:AnalyzeDocument"],
+                actions=["iam:PassRole"],
+                resources=[translate_role.role_arn],
+                conditions={"StringEquals": {"iam:PassedToService": "translate.amazonaws.com"}},
+            )
+        )
+        translate_trigger.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "textract:DetectDocumentText",
+                    "textract:AnalyzeDocument",
+                    "textract:StartDocumentTextDetection",
+                    "textract:GetDocumentTextDetection",
+                ],
                 resources=["*"],
             )
         )
