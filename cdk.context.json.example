@@ -1,0 +1,8 @@
+{
+  "connection_arn": "arn:aws:codestar-connections:us-east-1:ACCOUNT_ID:connection/CONNECTION_ID",
+  "repo": "your-org/pdf-poly-lingo",
+  "branch": "main",
+  "account": "YOUR_ACCOUNT_ID",
+  "region": "us-east-1",
+  "deploy_direct": false
+}
