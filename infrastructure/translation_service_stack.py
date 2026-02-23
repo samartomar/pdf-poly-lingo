@@ -111,6 +111,10 @@ class TranslationServiceStack(Stack):
         upload_proxy.add_to_role_policy(
             iam.PolicyStatement(actions=["translate:TranslateDocument"], resources=["*"])
         )
+        # Required for source_language="auto" (Translate uses Comprehend internally)
+        upload_proxy.add_to_role_policy(
+            iam.PolicyStatement(actions=["comprehend:DetectDominantLanguage"], resources=["*"])
+        )
 
         # ----- Lambda: Presigned URL -----
         presigned_handler = _lambda.Function(
@@ -238,8 +242,15 @@ class TranslationServiceStack(Stack):
                 "REGION": self.region,
             },
         )
-        jobs_table.grant_read_data(status_handler)
+        jobs_table.grant_read_write_data(status_handler)
         output_bucket.grant_read(status_handler)
+        output_bucket.grant_list(status_handler)
+        status_handler.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["translate:DescribeTextTranslationJob"],
+                resources=["*"],
+            )
+        )
         status_resource.add_method("GET", apigw.LambdaIntegration(status_handler))
 
         # ----- Outputs -----

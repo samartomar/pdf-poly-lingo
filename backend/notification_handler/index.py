@@ -20,8 +20,11 @@ def handler(event, context):
         key = record["s3"]["object"]["key"]
         size = record["s3"]["object"].get("size", 0)
 
-        # Skip auxiliary metadata - return only the translated document
-        if key.endswith(".auxiliary-translation-details.json"):
+        # Skip auxiliary metadata and details subfolder - return only the translated document
+        if (
+            key.endswith(".auxiliary-translation-details.json")
+            or "/details/" in key
+        ):
             continue
 
         # Extract job_id from path: .../account-TranslateText-jobId/...

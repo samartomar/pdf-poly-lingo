@@ -88,9 +88,10 @@ def process_upload(bucket, key, record):
     else:
         raise ValueError(f"Unsupported format: {ext}. Use HTML, TXT, or PDF.")
 
-    # Extract request_id from key: uploads/{request_id}/filename
+    # Extract request_id and original filename from key: uploads/{request_id}/filename
     parts = key.split("/")
     request_id = parts[1] if len(parts) >= 2 else None
+    original_filename = parts[-1] if parts else "document"
 
     if request_id and os.environ.get("TABLE_NAME"):
         table = DYNAMO.Table(os.environ["TABLE_NAME"])
@@ -99,6 +100,7 @@ def process_upload(bucket, key, record):
             "job_id": job_id,
             "status": "in_progress",
             "target_language": target_lang,
+            "original_filename": original_filename,
         })
 
     sns = boto3.client("sns")
@@ -177,6 +179,11 @@ def _process_pdf(
 
     text_blocks = [b["Text"] for b in blocks if b["BlockType"] == "LINE"]
     full_text = "\n".join(text_blocks) if text_blocks else ""
+
+    if not full_text.strip():
+        raise ValueError(
+            "No text could be extracted from this PDF. It may be image-only, scanned, or use an unsupported format."
+        )
 
     # Write extracted text to temp bucket
     txt_key = f"{temp_prefix}extracted.txt"

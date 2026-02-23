@@ -72,6 +72,7 @@ def handler(event, context):
                 "request_id": request_id,
                 "status": "processing",
                 "target_language": target_lang,
+                "original_filename": filename,
             })
 
         return _response(200, {
