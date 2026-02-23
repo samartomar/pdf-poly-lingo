@@ -20,6 +20,10 @@ def handler(event, context):
         key = record["s3"]["object"]["key"]
         size = record["s3"]["object"].get("size", 0)
 
+        # Skip auxiliary metadata - return only the translated document
+        if key.endswith(".auxiliary-translation-details.json"):
+            continue
+
         # Extract job_id from path: .../account-TranslateText-jobId/...
         match = re.search(r"TranslateText-([^/]+)", key)
         if match and table_name:
