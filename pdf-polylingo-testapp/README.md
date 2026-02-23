@@ -27,7 +27,9 @@ React test app for the PDF Poly Lingo translation service.
    ```
 
 4. Open http://localhost:5173 and:
-   - Select a TXT, HTML, or PDF file
+   - Select a TXT, HTML, or PDF file (max 5MB)
+   - Preview displays for PDF/HTML
    - Choose target language
-   - Click **Upload & Translate**
-   - Translation runs asynchronously; check S3 output bucket or SNS in 1–3 minutes.
+   - Click **Translate**
+   - Progress bar shows upload and translation status
+   - Translated document loads in the page when ready; you can also download it.

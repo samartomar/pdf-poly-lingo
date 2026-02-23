@@ -1,5 +1,9 @@
 # Testing the PDF Poly Lingo Translation Service
 
+## Proxy Upload (no CORS issues)
+
+The test app uses `POST /upload` which sends the file via API Gateway. No direct S3 upload, so CORS is not required. Max file size: **5MB**.
+
 ## Prerequisites
 
 1. **Deploy the service** – If the pipeline hasn't deployed the Prod stage yet:

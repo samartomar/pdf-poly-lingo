@@ -10,6 +10,7 @@ from aws_cdk import (
     aws_apigateway as apigw,
     aws_iam as iam,
     aws_sns as sns,
+    aws_dynamodb as dynamodb,
 )
 from constructs import Construct
 
@@ -47,6 +48,13 @@ class TranslationServiceStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+                    allowed_origins=["*"],
+                    allowed_headers=["*"],
+                ),
+            ],
         )
 
         temp_bucket = s3.Bucket(
@@ -55,6 +63,14 @@ class TranslationServiceStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+        )
+
+        # ----- DynamoDB: job tracking -----
+        jobs_table = dynamodb.Table(
+            self,
+            "JobsTable",
+            partition_key=dynamodb.Attribute(name="request_id", type=dynamodb.AttributeType.STRING),
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
         # ----- IAM Role for Amazon Translate -----
@@ -74,6 +90,22 @@ class TranslationServiceStack(Stack):
             "CompletionTopic",
             display_name="PDF Poly Lingo Translation Complete",
         )
+
+        # ----- Lambda: Proxy upload (avoids S3 CORS, max 5MB) -----
+        upload_proxy = _lambda.Function(
+            self,
+            "UploadProxy",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=_lambda.Code.from_asset("backend/upload_proxy"),
+            timeout=Duration.seconds(30),
+            memory_size=256,
+            environment={
+                "INPUT_BUCKET": input_bucket.bucket_name,
+                "REGION": self.region,
+            },
+        )
+        input_bucket.grant_put(upload_proxy)
 
         # ----- Lambda: Presigned URL -----
         presigned_handler = _lambda.Function(
@@ -104,8 +136,10 @@ class TranslationServiceStack(Stack):
                 "TEMP_BUCKET": temp_bucket.bucket_name,
                 "TRANSLATE_ROLE_ARN": translate_role.role_arn,
                 "COMPLETION_TOPIC_ARN": completion_topic.topic_arn,
+                "TABLE_NAME": jobs_table.table_name,
             },
         )
+        jobs_table.grant_read_write_data(translate_trigger)
         input_bucket.grant_read(translate_trigger)
         output_bucket.grant_read(translate_trigger)
         temp_bucket.grant_read_write(translate_trigger)
@@ -140,8 +174,12 @@ class TranslationServiceStack(Stack):
             handler="index.handler",
             code=_lambda.Code.from_asset("backend/notification_handler"),
             timeout=Duration.seconds(30),
-            environment={"COMPLETION_TOPIC_ARN": completion_topic.topic_arn},
+            environment={
+                "COMPLETION_TOPIC_ARN": completion_topic.topic_arn,
+                "TABLE_NAME": jobs_table.table_name,
+            },
         )
+        jobs_table.grant_read_write_data(notification_handler)
         output_bucket.grant_read(notification_handler)
         completion_topic.grant_publish(notification_handler)
         output_bucket.add_event_notification(
@@ -160,8 +198,31 @@ class TranslationServiceStack(Stack):
                 allow_headers=["Content-Type", "Authorization"],
             ),
         )
+        # Proxy upload (no CORS issues, max 5MB)
+        upload_resource = api.root.add_resource("upload")
+        upload_resource.add_method("POST", apigw.LambdaIntegration(upload_proxy))
+
         presigned_resource = api.root.add_resource("presigned-url")
         presigned_resource.add_method("POST", apigw.LambdaIntegration(presigned_handler))
+
+        # Status & download URL
+        status_resource = api.root.add_resource("status")
+        status_handler = _lambda.Function(
+            self,
+            "StatusHandler",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=_lambda.Code.from_asset("backend/status_handler"),
+            timeout=Duration.seconds(10),
+            environment={
+                "TABLE_NAME": jobs_table.table_name,
+                "OUTPUT_BUCKET": output_bucket.bucket_name,
+                "REGION": self.region,
+            },
+        )
+        jobs_table.grant_read_data(status_handler)
+        output_bucket.grant_read(status_handler)
+        status_resource.add_method("GET", apigw.LambdaIntegration(status_handler))
 
         # ----- Outputs -----
         from aws_cdk import CfnOutput

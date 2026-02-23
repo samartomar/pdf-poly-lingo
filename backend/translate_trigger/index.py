@@ -14,6 +14,7 @@ PDF_TYPE = ".pdf"
 TRANSLATE_CLIENT = boto3.client("translate")
 TEXTRACT_CLIENT = boto3.client("textract")
 S3 = boto3.client("s3")
+DYNAMO = boto3.resource("dynamodb")
 
 
 def handler(event, context):
@@ -75,7 +76,19 @@ def process_upload(bucket, key, record):
     else:
         raise ValueError(f"Unsupported format: {ext}. Use HTML, TXT, or PDF.")
 
-    # Publish job started notification
+    # Extract request_id from key: uploads/{request_id}/filename
+    parts = key.split("/")
+    request_id = parts[1] if len(parts) >= 2 else None
+
+    if request_id and os.environ.get("TABLE_NAME"):
+        table = DYNAMO.Table(os.environ["TABLE_NAME"])
+        table.put_item(Item={
+            "request_id": request_id,
+            "job_id": job_id,
+            "status": "in_progress",
+            "target_language": target_lang,
+        })
+
     sns = boto3.client("sns")
     sns.publish(
         TopicArn=topic_arn,
