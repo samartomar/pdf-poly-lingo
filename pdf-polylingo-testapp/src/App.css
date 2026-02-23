@@ -1,0 +1,154 @@
+.app {
+  min-height: 100vh;
+  padding: 2rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #e8e8e8;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: #94a3b8;
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+}
+
+.main {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.field {
+  margin-bottom: 1.25rem;
+}
+
+.field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #cbd5e1;
+  margin-bottom: 0.4rem;
+}
+
+.field input[type="file"],
+.field select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.2);
+  color: #e8e8e8;
+  font-size: 0.95rem;
+}
+
+.field input[type="file"]:focus,
+.field select:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+.filename {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.actions button {
+  padding: 0.65rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.actions button.primary {
+  background: #38bdf8;
+  color: #0f172a;
+}
+
+.actions button.primary:hover:not(:disabled) {
+  background: #7dd3fc;
+}
+
+.actions button.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.actions button:not(.primary) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+}
+
+.actions button:not(.primary):hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.message {
+  margin-top: 1.25rem;
+  padding: 0.85rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.message.success {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+
+.message.error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.message code {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.env-hint {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.env-hint code {
+  display: block;
+  margin-top: 0.5rem;
+  word-break: break-all;
+  color: #fcd34d;
+}

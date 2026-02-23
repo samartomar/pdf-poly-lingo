@@ -1,3 +1,7 @@
+# Env (API endpoints)
+.env
+.env.local
+
 # CDK
 cdk.out/
 cdk.context.json

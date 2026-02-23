@@ -57,6 +57,7 @@ class PipelineStack(Stack):
         pipeline = pipelines.CodePipeline(
             self,
             "Pipeline",
+            pipeline_name="pdf-poly-lingo",
             synth=synth,
         )
 
