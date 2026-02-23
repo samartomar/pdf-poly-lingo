@@ -28,6 +28,7 @@ function App() {
   const [progress, setProgress] = useState(0)
   const [translatedUrl, setTranslatedUrl] = useState(null)
   const [error, setError] = useState('')
+  const [viewMode, setViewMode] = useState('side') // 'inline' | 'side'
   const pollRef = useRef(null)
 
   const apiEndpoint = (import.meta.env.VITE_API_ENDPOINT || '').replace(/\/$/, '')
@@ -116,7 +117,11 @@ function App() {
         setProgress(100)
         setStatus('complete')
         stopPolling()
-      } else if (data.status === 'in_progress') {
+      } else if (data.status === 'failed' && data.error) {
+        setError(data.error)
+        setStatus('error')
+        stopPolling()
+      } else if (data.status === 'in_progress' || data.status === 'processing') {
         setProgress((p) => Math.min(p + 4, 95))
       }
     } catch {
@@ -192,6 +197,28 @@ function App() {
             <option key={l.code} value={l.code}>{l.name}</option>
           ))}
         </select>
+        <div className="view-toggle">
+          <label className={viewMode === 'inline' ? 'active' : ''}>
+            <input
+              type="radio"
+              name="viewMode"
+              checked={viewMode === 'inline'}
+              onChange={() => setViewMode('inline')}
+              disabled={status === 'uploading' || status === 'translating'}
+            />
+            Inline
+          </label>
+          <label className={viewMode === 'side' ? 'active' : ''}>
+            <input
+              type="radio"
+              name="viewMode"
+              checked={viewMode === 'side'}
+              onChange={() => setViewMode('side')}
+              disabled={status === 'uploading' || status === 'translating'}
+            />
+            Side by side
+          </label>
+        </div>
         {status === 'idle' || status === 'error' ? (
           <button
             onClick={handleTranslate}
@@ -208,48 +235,84 @@ function App() {
       </div>
 
       {showProgress && (
-        <div className="progress-strip">
-          <div className="progress-fill" style={{ width: `${progress}%` }} />
-          <span className="progress-text">
-            {status === 'uploading' ? 'Uploading…' : 'Translating…'} {progress}%
-          </span>
+        <div className="progress-futuristic">
+          <div className="progress-track">
+            <div className="progress-glow" style={{ width: `${progress}%` }} />
+            <div className="progress-shine" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="progress-meta">
+            <span className="progress-label">
+              {status === 'uploading' ? 'Uploading' : 'Translating'}
+            </span>
+            <span className="progress-pct">{progress}%</span>
+          </div>
         </div>
       )}
 
       {error && <div className="toast error">{error}</div>}
 
-      <div className="panels">
-        <div className="panel">
-          <div className="panel-header">Original</div>
-          <div className="panel-body">
-            {filePreviewUrl ? (
-              (isPdf || isHtml) ? (
-                <iframe src={filePreviewUrl} title="Original" />
+      <div className={`panels ${viewMode === 'inline' ? 'panels-inline' : ''}`}>
+        {viewMode === 'inline' ? (
+          <div className="panel panel-single">
+            <div className="panel-header">
+              {status === 'complete' && translatedUrl ? 'Translated' : 'Document'}
+            </div>
+            <div className="panel-body">
+              {status === 'complete' && translatedUrl ? (
+                <>
+                  <iframe src={translatedUrl} title="Translated" />
+                  <a href={translatedUrl} download target="_blank" rel="noreferrer" className="btn-download">
+                    Download
+                  </a>
+                </>
+              ) : filePreviewUrl ? (
+                (isPdf || isHtml) ? (
+                  <iframe src={filePreviewUrl} title="Original" />
+                ) : (
+                  <p className="no-preview">Preview for .txt not available</p>
+                )
               ) : (
-                <p className="no-preview">Preview for .txt not available</p>
-              )
-            ) : (
-              <p className="empty">Select a PDF or HTML file to preview</p>
-            )}
+                <p className="empty">
+                  {showProgress ? 'Translation in progress…' : 'Select a PDF or HTML file to preview'}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="panel">
-          <div className="panel-header">Translated</div>
-          <div className="panel-body">
-            {status === 'complete' && translatedUrl ? (
-              <>
-                <iframe src={translatedUrl} title="Translated" />
-                <a href={translatedUrl} download target="_blank" rel="noreferrer" className="btn-download">
-                  Download
-                </a>
-              </>
-            ) : (
-              <p className="empty">
-                {showProgress ? 'Translation in progress…' : 'Translated document will appear here'}
-              </p>
-            )}
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="panel">
+              <div className="panel-header">Original</div>
+              <div className="panel-body">
+                {filePreviewUrl ? (
+                  (isPdf || isHtml) ? (
+                    <iframe src={filePreviewUrl} title="Original" />
+                  ) : (
+                    <p className="no-preview">Preview for .txt not available</p>
+                  )
+                ) : (
+                  <p className="empty">Select a PDF or HTML file to preview</p>
+                )}
+              </div>
+            </div>
+            <div className="panel">
+              <div className="panel-header">Translated</div>
+              <div className="panel-body">
+                {status === 'complete' && translatedUrl ? (
+                  <>
+                    <iframe src={translatedUrl} title="Translated" />
+                    <a href={translatedUrl} download target="_blank" rel="noreferrer" className="btn-download">
+                      Download
+                    </a>
+                  </>
+                ) : (
+                  <p className="empty">
+                    {showProgress ? 'Translation in progress…' : 'Translated document will appear here'}
+                  </p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {!apiEndpoint && (

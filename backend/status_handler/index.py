@@ -34,6 +34,8 @@ def handler(event, context):
         "status": status,
         "job_id": row.get("job_id"),
     }
+    if status == "failed" and row.get("error"):
+        result["error"] = row["error"]
 
     if status == "complete" and row.get("output_key") and row.get("output_bucket"):
         url = S3.generate_presigned_url(

@@ -103,9 +103,11 @@ class TranslationServiceStack(Stack):
             environment={
                 "INPUT_BUCKET": input_bucket.bucket_name,
                 "REGION": self.region,
+                "TABLE_NAME": jobs_table.table_name,
             },
         )
         input_bucket.grant_put(upload_proxy)
+        jobs_table.grant_read_write_data(upload_proxy)
         upload_proxy.add_to_role_policy(
             iam.PolicyStatement(actions=["translate:TranslateDocument"], resources=["*"])
         )

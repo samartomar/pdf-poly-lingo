@@ -30,7 +30,8 @@ def handler(event, context):
             process_upload(bucket, key, record)
         except Exception as e:
             print(f"Error processing {key}: {e}")
-            raise
+            _record_failure(key, str(e))
+            # Return 200 so S3 does not retry; user will see error via /status
     return {"statusCode": 200}
 
 
@@ -47,14 +48,15 @@ def process_upload(bucket, key, record):
     input_uri = f"s3://{input_bucket}/{prefix}"
     output_uri = f"s3://{output_bucket}/"
 
-    # Get object metadata (retry for S3 eventual consistency)
-    for attempt in range(5):
+    # Get object metadata (retry for S3 eventual consistency - can take several seconds)
+    for attempt in range(8):
         try:
             meta = S3.head_object(Bucket=bucket, Key=key).get("Metadata") or {}
             break
         except ClientError as e:
-            if e.response["Error"]["Code"] == "404" and attempt < 4:
-                time.sleep(2 ** attempt)
+            if e.response["Error"]["Code"] == "404" and attempt < 7:
+                delay = min(2 ** attempt, 32)
+                time.sleep(delay)
             else:
                 raise
     target_lang = meta.get("target-language", "es")
@@ -177,3 +179,20 @@ def _content_type(ext):
         ".htm": "text/html",
         ".txt": "text/plain",
     }.get(ext, "text/plain")
+
+
+def _record_failure(key: str, error: str) -> None:
+    """Write failed status to DynamoDB so /status can return error to user."""
+    parts = key.split("/")
+    request_id = parts[1] if len(parts) >= 2 else None
+    if not request_id or not os.environ.get("TABLE_NAME"):
+        return
+    try:
+        table = DYNAMO.Table(os.environ["TABLE_NAME"])
+        table.put_item(Item={
+            "request_id": request_id,
+            "status": "failed",
+            "error": error[:500],  # Limit length
+        })
+    except Exception as e:
+        print(f"Could not record failure for {request_id}: {e}")

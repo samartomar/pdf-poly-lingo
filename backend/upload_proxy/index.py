@@ -11,6 +11,7 @@ SYNC_MAX_BYTES = 100 * 1024  # 100 KB - TranslateDocument limit
 
 translate_client = boto3.client("translate")
 s3_client = boto3.client("s3")
+dynamo = boto3.resource("dynamodb")
 
 
 def handler(event, context):
@@ -63,6 +64,15 @@ def handler(event, context):
                 "source-language": source_lang,
             },
         )
+
+        # Write initial record so /status returns immediately (avoids stuck "pending")
+        if os.environ.get("TABLE_NAME"):
+            table = dynamo.Table(os.environ["TABLE_NAME"])
+            table.put_item(Item={
+                "request_id": request_id,
+                "status": "processing",
+                "target_language": target_lang,
+            })
 
         return _response(200, {
             "sync": False,

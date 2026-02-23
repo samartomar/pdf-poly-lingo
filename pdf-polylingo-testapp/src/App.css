@@ -137,32 +137,128 @@
   background: #f1f5f9;
 }
 
-.progress-strip {
-  flex-shrink: 0;
-  position: relative;
-  height: 24px;
-  background: #e2e8f0;
-  overflow: hidden;
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
 
-.progress-fill {
+.view-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  transition: all 0.15s;
+}
+
+.view-toggle label:first-of-type {
+  border-radius: 6px 0 0 6px;
+}
+
+.view-toggle label:last-of-type {
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+}
+
+.view-toggle label.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.view-toggle label input {
+  display: none;
+}
+
+.view-toggle label:has(input:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Futuristic progress bar */
+.progress-futuristic {
+  flex-shrink: 0;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  border-top: 1px solid rgba(34, 211, 238, 0.2);
+}
+
+.progress-track {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.8);
+  overflow: hidden;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.progress-glow {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  background: #2563eb;
-  transition: width 0.25s ease;
+  background: linear-gradient(90deg, #06b6d4, #8b5cf6, #ec4899);
+  background-size: 200% 100%;
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: progressGlow 2s ease infinite;
 }
 
-.progress-text {
+.progress-shine {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 40%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.4) 60%,
+    transparent 100%
+  );
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: progressShine 1.5s ease-in-out infinite;
+}
+
+@keyframes progressGlow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.3); }
+}
+
+@keyframes progressShine {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.progress-label {
   font-size: 0.6875rem;
   font-weight: 500;
-  color: #475569;
-  z-index: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+}
+
+.progress-pct {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #22d3ee;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.5);
 }
 
 .toast {
@@ -187,10 +283,17 @@
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1px;
+  gap: 1rem;
   min-height: 0;
   padding: 1rem;
-  gap: 1rem;
+}
+
+.panels-inline {
+  grid-template-columns: 1fr;
+}
+
+.panel-single {
+  max-width: 100%;
 }
 
 .panel {
