@@ -3,8 +3,10 @@
 import json
 import os
 import time
+from urllib.parse import unquote
 
 import boto3
+from botocore.exceptions import ClientError
 
 # Batch translation supports: HTML, plain text, docx, pptx, xlsx, xlf
 # PDF requires Textract preprocessing
@@ -21,7 +23,7 @@ def handler(event, context):
     """Process S3 OBJECT_CREATED events under uploads/ prefix."""
     for record in event.get("Records", []):
         bucket = record["s3"]["bucket"]["name"]
-        key = record["s3"]["object"]["key"]
+        key = unquote(record["s3"]["object"]["key"])
         if not key.startswith("uploads/") or key.endswith("/"):
             continue
         try:
@@ -45,8 +47,16 @@ def process_upload(bucket, key, record):
     input_uri = f"s3://{input_bucket}/{prefix}"
     output_uri = f"s3://{output_bucket}/"
 
-    # Get object metadata for target/source language
-    meta = S3.head_object(Bucket=bucket, Key=key).get("Metadata") or {}
+    # Get object metadata (retry for S3 eventual consistency)
+    for attempt in range(5):
+        try:
+            meta = S3.head_object(Bucket=bucket, Key=key).get("Metadata") or {}
+            break
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404" and attempt < 4:
+                time.sleep(2 ** attempt)
+            else:
+                raise
     target_lang = meta.get("target-language", "es")
     source_lang = meta.get("source-language") or "auto"
 
@@ -132,11 +142,10 @@ def _process_pdf(
     job_id_txt = f"pdf-extract-{int(time.time())}"
     temp_prefix = f"temp/{job_id_txt}/"
 
-    # Download PDF and run Textract (sync DetectDocumentText for simplicity)
-    obj = S3.get_object(Bucket=bucket, Key=key)
-    doc_bytes = obj["Body"].read()
-
-    response = TEXTRACT_CLIENT.detect_document_text(Document={"Bytes": doc_bytes})
+    # Textract requires S3Object for PDF (Bytes only supports JPEG/PNG images)
+    response = TEXTRACT_CLIENT.detect_document_text(
+        Document={"S3Object": {"Bucket": bucket, "Name": key}}
+    )
     text_blocks = [b["Text"] for b in response.get("Blocks", []) if b["BlockType"] == "LINE"]
     full_text = "\n".join(text_blocks)
 
