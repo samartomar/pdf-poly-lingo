@@ -244,7 +244,12 @@ class TranslationServiceStack(Stack):
         )
         jobs_table.grant_read_write_data(status_handler)
         output_bucket.grant_read(status_handler)
-        output_bucket.grant_list(status_handler)
+        status_handler.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:ListBucket"],
+                resources=[output_bucket.bucket_arn],
+            )
+        )
         status_handler.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["translate:DescribeTextTranslationJob"],
