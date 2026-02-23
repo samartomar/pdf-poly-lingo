@@ -106,6 +106,9 @@ class TranslationServiceStack(Stack):
             },
         )
         input_bucket.grant_put(upload_proxy)
+        upload_proxy.add_to_role_policy(
+            iam.PolicyStatement(actions=["translate:TranslateDocument"], resources=["*"])
+        )
 
         # ----- Lambda: Presigned URL -----
         presigned_handler = _lambda.Function(

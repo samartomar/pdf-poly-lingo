@@ -59,18 +59,19 @@ function App() {
       return
     }
     if (file.size > maxFileSize) {
-      setError('File too large (max 5MB). Use a smaller file.')
+      setError('File too large (max 5MB).')
       setStatus('error')
       return
     }
 
     setStatus('uploading')
-    setProgress(10)
+    setProgress(5)
     setError('')
 
     try {
+      setProgress(15)
       const base64 = await fileToBase64(file)
-      setProgress(30)
+      setProgress(25)
       const res = await fetch(`${apiEndpoint}/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,15 +82,25 @@ function App() {
           source_language: 'auto',
         }),
       })
+      setProgress(50)
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || `Upload failed: ${res.status}`)
       }
       const data = await res.json()
-      setRequestId(data.request_id || '')
-      setProgress(50)
-      setStatus('translating')
-      startPolling(data.request_id)
+
+      if (data.sync && data.translated_base64) {
+        const bytes = Uint8Array.from(atob(data.translated_base64), (c) => c.charCodeAt(0))
+        const blob = new Blob([bytes], { type: data.filename?.endsWith('.html') ? 'text/html' : 'text/plain' })
+        setTranslatedUrl(URL.createObjectURL(blob))
+        setProgress(100)
+        setStatus('complete')
+      } else {
+        setRequestId(data.request_id || '')
+        setProgress(55)
+        setStatus('translating')
+        startPolling(data.request_id)
+      }
     } catch (err) {
       setError(err.message || 'Upload failed.')
       setStatus('error')
@@ -106,7 +117,7 @@ function App() {
         setStatus('complete')
         stopPolling()
       } else if (data.status === 'in_progress') {
-        setProgress((p) => Math.min(p + 5, 95))
+        setProgress((p) => Math.min(p + 4, 95))
       }
     } catch {
       // Ignore poll errors
@@ -114,7 +125,7 @@ function App() {
   }
 
   const startPolling = (rid) => {
-    pollRef.current = setInterval(() => checkStatus(rid), 3000)
+    pollRef.current = setInterval(() => checkStatus(rid), 2500)
     checkStatus(rid)
   }
   const stopPolling = () => {
@@ -128,10 +139,16 @@ function App() {
       if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl)
     }
   }, [filePreviewUrl])
+  useEffect(() => {
+    return () => {
+      if (translatedUrl?.startsWith?.('blob:')) URL.revokeObjectURL(translatedUrl)
+    }
+  }, [translatedUrl])
 
   const reset = () => {
     stopPolling()
     if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl)
+    if (translatedUrl && translatedUrl.startsWith('blob:')) URL.revokeObjectURL(translatedUrl)
     setFile(null)
     setFilePreviewUrl(null)
     setStatus('idle')
@@ -143,106 +160,103 @@ function App() {
 
   const isPdf = file?.name?.toLowerCase().endsWith('.pdf')
   const isHtml = file?.name?.toLowerCase().match(/\.(html?|htm)$/)
+  const showProgress = status === 'uploading' || status === 'translating'
 
   return (
     <div className="app">
       <header className="header">
         <h1>PDF Poly Lingo</h1>
-        <p className="subtitle">Translate documents</p>
+        <p className="subtitle">HTML & TXT under 100 KB translate in seconds</p>
       </header>
 
-      <main className="main">
-        <div className="card">
-          <div className="field">
-            <label htmlFor="file">Select file (TXT, HTML, or PDF — max 5MB)</label>
-            <input
-              id="file"
-              type="file"
-              accept=".txt,.html,.htm,.pdf"
-              onChange={handleFileChange}
-              disabled={status === 'uploading' || status === 'translating'}
-            />
-          </div>
+      <div className="toolbar">
+        <div className="file-picker">
+          <input
+            id="file"
+            type="file"
+            accept=".txt,.html,.htm,.pdf"
+            onChange={handleFileChange}
+            disabled={status === 'uploading' || status === 'translating'}
+          />
+          <label htmlFor="file" className="file-label">
+            {file ? `${file.name} (${(file.size / 1024).toFixed(1)} KB)` : 'Choose file'}
+          </label>
+        </div>
+        <select
+          value={targetLang}
+          onChange={(e) => setTargetLang(e.target.value)}
+          disabled={status === 'uploading' || status === 'translating'}
+          className="lang-select"
+        >
+          {LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code}>{l.name}</option>
+          ))}
+        </select>
+        {status === 'idle' || status === 'error' ? (
+          <button
+            onClick={handleTranslate}
+            disabled={!file}
+            className="btn-translate"
+          >
+            Translate
+          </button>
+        ) : (
+          <button onClick={reset} className="btn-reset">
+            Cancel
+          </button>
+        )}
+      </div>
 
-          {file && (
-            <div className="preview-section">
-              <label>Preview</label>
-              <div className="preview-frame">
-                {isPdf && filePreviewUrl && (
-                  <iframe src={filePreviewUrl} title="Original" />
-                )}
-                {isHtml && filePreviewUrl && (
-                  <iframe src={filePreviewUrl} title="Original" />
-                )}
-                {file && !isPdf && !isHtml && (
-                  <p className="preview-placeholder">Preview not available for .txt</p>
-                )}
-              </div>
-            </div>
-          )}
+      {showProgress && (
+        <div className="progress-strip">
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
+          <span className="progress-text">
+            {status === 'uploading' ? 'Uploading…' : 'Translating…'} {progress}%
+          </span>
+        </div>
+      )}
 
-          <div className="field">
-            <label htmlFor="lang">Target language</label>
-            <select
-              id="lang"
-              value={targetLang}
-              onChange={(e) => setTargetLang(e.target.value)}
-              disabled={status === 'uploading' || status === 'translating'}
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>{l.name}</option>
-              ))}
-            </select>
-          </div>
+      {error && <div className="toast error">{error}</div>}
 
-          {(status === 'uploading' || status === 'translating') && (
-            <div className="progress-section">
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: `${progress}%` }} />
-              </div>
-              <span>
-                {status === 'uploading' ? 'Uploading…' : 'Translating…'}
-              </span>
-            </div>
-          )}
-
-          <div className="actions">
-            {status === 'idle' || status === 'error' ? (
-              <button
-                onClick={handleTranslate}
-                disabled={!file}
-                className="primary"
-              >
-                Translate
-              </button>
-            ) : null}
-            {(status === 'complete' || status === 'error') && (
-              <button onClick={reset}>New document</button>
+      <div className="panels">
+        <div className="panel">
+          <div className="panel-header">Original</div>
+          <div className="panel-body">
+            {filePreviewUrl ? (
+              (isPdf || isHtml) ? (
+                <iframe src={filePreviewUrl} title="Original" />
+              ) : (
+                <p className="no-preview">Preview for .txt not available</p>
+              )
+            ) : (
+              <p className="empty">Select a PDF or HTML file to preview</p>
             )}
           </div>
-
-          {error && <div className="message error">{error}</div>}
-
-          {status === 'complete' && translatedUrl && (
-            <div className="translated-section">
-              <label>Translated document</label>
-              <div className="preview-frame">
-                <iframe src={translatedUrl} title="Translated" />
-              </div>
-              <a href={translatedUrl} download target="_blank" rel="noreferrer" className="download-btn">
-                Download translated file
-              </a>
-            </div>
-          )}
         </div>
-
-        {!apiEndpoint && (
-          <div className="env-hint">
-            <p>Configure your API endpoint:</p>
-            <code>VITE_API_ENDPOINT=https://xxx.execute-api.us-west-2.amazonaws.com/prod/</code>
+        <div className="panel">
+          <div className="panel-header">Translated</div>
+          <div className="panel-body">
+            {status === 'complete' && translatedUrl ? (
+              <>
+                <iframe src={translatedUrl} title="Translated" />
+                <a href={translatedUrl} download target="_blank" rel="noreferrer" className="btn-download">
+                  Download
+                </a>
+              </>
+            ) : (
+              <p className="empty">
+                {showProgress ? 'Translation in progress…' : 'Translated document will appear here'}
+              </p>
+            )}
           </div>
-        )}
-      </main>
+        </div>
+      </div>
+
+      {!apiEndpoint && (
+        <div className="env-hint">
+          Set <code>VITE_API_ENDPOINT</code> in .env
+        </div>
+      )}
     </div>
   )
 }
